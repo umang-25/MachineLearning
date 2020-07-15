@@ -1,0 +1,71 @@
+---
+title: "Assignment"
+output: html_document
+---
+#Get the data
+```{r echo=TRUE}
+        training.address <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+        test.address <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+        filename <- "trainingset.csv"
+        filename2 <- "testset.csv"
+        if(!file.exists(filename)){
+                download.file(training.address,destfile=filename)
+        }
+        rawtrain<-read.csv(filename,na.strings = c("NA","NaN","","#DIV/0!"))
+        
+        if(!file.exists(filename2)){
+                download.file(test.address,destfile=filename2)
+        }
+        rawtest <- read.csv(filename2,na.strings = c("NA","NaN","","#DIV/0!"))
+
+```        
+
+#clean
+We'll load the libraries and then clean the data by removing the unimportant variables and columns with mostly NA values.
+```{r echo=TRUE}
+                library(caret)
+                library(dplyr)
+#We find number of na terms
+        naColumns<-colSums(is.na(rawtrain))
+#there are predictors with 19226 predictors. Clearly they can't be involved in the model
+        trainset <- rawtrain[,naColumns==0]
+#We should preprocess the test set as well
+        na.test <- colSums(is.na(rawtrain))
+        testset <- rawtest[,na.test==0]
+#Now again username, X, timestamp variables and windows s shouldn't really be invoved in the model
+        trainset<- trainset[,c(-1:-7)]
+        testset <- testset[,c(-1:-7)]
+```
+
+
+
+#start building model
+
+```{r echo = TRUE}
+#We'll create train AND test from this trainset
+                inTrain <- createDataPartition(trainset$classe,p=0.75,list = FALSE)
+                train <- trainset[inTrain, ]
+                test <- trainset[-inTrain, ]
+```                
+Since this is a classficiation problem with multiple classes we know that logistic is not a good idea, and random forest will outperform lda. So our only good choices are random forest, boosted forest(gbm) or knn depending on how linear the data is. Even then there's a good chance that random forest and gbm are going to do give the best performance
+
+```{r echo=TRUE}
+        contr <- trainControl(method="cv",number=10)
+        module1 <- train(classe~.,data=train,method="rf",trControl=contr)
+        pred<-predict(module1,test[,-53])
+        confusionMatrix(pred,as.factor(test$classe))
+```
+Initially the idea was to try for more models(gbm) but then the output is such a highly accurate model for random forest. We'll just use this for prediction.
+
+```{r echo=TRUE}
+##We'll finally create this model using the complete "trainset" and check it for the complete test set  
+        module.final <- train(classe~.,data=trainset,method="rf",trControl=contr)
+        pred.final<-predict(module1,testset[,-53])
+```
+
+The final predictions are:
+
+
+```{r echo=TRUE}
+        pred.final
+```
